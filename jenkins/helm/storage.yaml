@@ -1,0 +1,41 @@
+# Create the lvm volumes before running. Make sure local storage operator is installed.
+# pvcreate /dev/sda
+# vgcreate /dev/vg01 /dev/sda
+# lvcreate -L +8G --name jenkins-data vg01
+# mkfs -t xfs /dev/vg01/jenkins-data
+---
+apiVersion: "local.storage.openshift.io/v1"
+kind: "LocalVolume"
+metadata:
+  name: "local-disks-jenkins-data"
+  namespace: "openshift-local-storage"
+spec:
+  nodeSelector:
+    nodeSelectorTerms:
+    - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - ocpsno.davenet.local
+  storageClassDevices:
+    - storageClassName: "local-sc-jenkins-data"
+      volumeMode: Filesystem
+      fsType: xfs
+      devicePaths:
+        - /dev/vg01/jenkins-data
+
+# oc patch storageclass local-sc-jenkins-data -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: local-sc-jenkins-data
